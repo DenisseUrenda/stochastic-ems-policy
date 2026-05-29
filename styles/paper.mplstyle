@@ -1,0 +1,28 @@
+# Ticks
+xtick.top : True
+xtick.bottom : True
+xtick.direction : in
+
+ytick.left : True
+ytick.right : True
+ytick.direction : in
+
+# Grid
+axes.grid : True
+grid.linestyle : -
+grid.color : gray
+grid.alpha : 0.05
+
+# Fonts
+font.size : 16
+axes.labelsize : 16
+xtick.labelsize : 14
+ytick.labelsize : 14
+legend.fontsize : 15
+
+# Figure
+figure.figsize : 8, 5
+figure.dpi : 120
+
+# Save
+savefig.bbox : tight

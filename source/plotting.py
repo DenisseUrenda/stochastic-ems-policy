@@ -53,27 +53,30 @@ def plot_arrivals_departures(
 
 def plot_state_trajectories(t_hist, S_hist, save_path=None):
 
-    N_hist = S_hist[..., 0]
-    D_hist = S_hist[..., 1]
-    E_hist = S_hist[..., 2]
-    P_hist = S_hist[..., 3]
-
     fig, ax = plt.subplots(4, 1, sharex=True)
 
-    ax[0].plot(t_hist.detach().cpu().numpy(), N_hist.detach().cpu().numpy(), c="0.8")
-    ax[0].text( 0.01, 0.8, r"No. Parked EVs $N_t$", transform=ax[0].transAxes)
+    t = t_hist.detach().cpu().numpy()
 
-    ax[1].plot(t_hist.detach().cpu().numpy(), D_hist.detach().cpu().numpy(), c="0.8")
-    ax[1].text( 0.01, 0.8, r"Pending Demand $D_t$ (kWh)", transform=ax[1].transAxes)
+    N = S_hist[..., 0].detach().cpu().numpy()
+    D = S_hist[..., 1].detach().cpu().numpy()
+    E = S_hist[..., 2].detach().cpu().numpy()
+    P = S_hist[..., 3].detach().cpu().numpy()
 
-    ax[2].plot(t_hist.detach().cpu().numpy(), E_hist.detach().cpu().numpy(), c="0.8")
+    ax[0].plot(t, N, c="0.8", lw=0.5)
+    ax[0].plot(t, N.mean(axis=1), c="C0", lw=2)
+    ax[0].text(0.01, 0.8, r"No. Parked EVs $N_t$", transform=ax[0].transAxes)
+
+    ax[1].plot(t, D, c="0.8", lw=0.5)
+    ax[1].plot(t, D.mean(axis=1), c="C0", lw=2)
+    ax[1].text(0.01, 0.8, r"Pending Demand $D_t$ (kWh)", transform=ax[1].transAxes)
+
+    ax[2].plot(t, E, c="0.8", lw=0.5)
+    ax[2].plot(t, E.mean(axis=1), c="C0", lw=2)
     ax[2].text(0.01, 0.8, r"Stored Energy $E_t$ (kWh)", transform=ax[2].transAxes)
 
-    ax[3].plot(t_hist.detach().cpu().numpy(), P_hist.detach().cpu().numpy(), c="0.8")
+    ax[3].plot(t, P, c="0.8", lw=0.5)
+    ax[3].plot(t, P.mean(axis=1), c="C0", lw=2)
     ax[3].text(0.01, 0.8, r"Energy Price $P_t$ (USD/kWh)", transform=ax[3].transAxes)
-
-    ax[3].set_xticks(np.arange(0, 24, 4))
-    ax[3].set_xlabel(r"Time $t$ (hrs)")
 
     plt.tight_layout(pad=0.2, h_pad=0.1, w_pad=0.2)
 
@@ -85,27 +88,34 @@ def plot_state_trajectories(t_hist, S_hist, save_path=None):
 
 def plot_endogenous_trajectories(t_hist, endog_hist, save_path=None):
 
-    q_hist  = endog_hist[..., 0]
-    ec_hist = endog_hist[..., 1]
-    ed_hist = endog_hist[..., 2]
-    Ub_hist = endog_hist[..., 3]
-    Us_hist = endog_hist[..., 4]
+    t = t_hist.detach().cpu().numpy()
+
+    q  = endog_hist[..., 0].detach().cpu().numpy()
+    ec = endog_hist[..., 1].detach().cpu().numpy()
+    ed = endog_hist[..., 2].detach().cpu().numpy()
+    Ub = endog_hist[..., 3].detach().cpu().numpy()
+    Us = endog_hist[..., 4].detach().cpu().numpy()
 
     fig, ax = plt.subplots(5, 1, sharex=True, figsize=(7,5))
 
-    ax[0].plot(t_hist.detach().cpu().numpy(), q_hist.detach().cpu().numpy(), c='0.8')
+    ax[0].plot(t, q, c='0.8', lw=0.5)
+    ax[0].plot(t, q.mean(axis=1), c='C0', lw=2)
     ax[0].text(0.01, 0.7, r'Power allocated $q_t$ (kW)', transform=ax[0].transAxes)
 
-    ax[1].plot(t_hist.detach().cpu().numpy(), ec_hist.detach().cpu().numpy(), c='0.8')
+    ax[1].plot(t, ec, c='0.8', lw=0.5)
+    ax[1].plot(t, ec.mean(axis=1), c='C0', lw=2)
     ax[1].text(0.01, 0.7, r'Charged energy $e_t^c$ (kWh)', transform=ax[1].transAxes)
 
-    ax[2].plot(t_hist.detach().cpu().numpy(), ed_hist.detach().cpu().numpy(), c='0.8')
+    ax[2].plot(t, ed, c='0.8', lw=0.5)
+    ax[2].plot(t, ed.mean(axis=1), c='C0', lw=2)
     ax[2].text(0.01, 0.7, r'Energy discharged $e_t^d$ (kWh)', transform=ax[2].transAxes)
 
-    ax[3].plot(t_hist.detach().cpu().numpy(), Ub_hist.detach().cpu().numpy(), c='0.8')
+    ax[3].plot(t, Ub, c='0.8', lw=0.5)
+    ax[3].plot(t, Ub.mean(axis=1), c='C0', lw=2)
     ax[3].text(0.01, 0.7, r'Energy purchased $U_t^b$ (kWh)', transform=ax[3].transAxes)
 
-    ax[4].plot(t_hist.detach().cpu().numpy(), Us_hist.detach().cpu().numpy(), c='0.8')
+    ax[4].plot(t, Us, c='0.8', lw=0.5)
+    ax[4].plot(t, Us.mean(axis=1), c='C0', lw=2)
     ax[4].text(0.01, 0.7, r'Energy sold $U_t^s$ (kWh)', transform=ax[4].transAxes)
 
     ax[4].set_xticks(np.arange(0, 24, 4))
@@ -122,20 +132,25 @@ def plot_endogenous_trajectories(t_hist, endog_hist, save_path=None):
 
 def plot_control_trajectories(t_hist, u_hist, save_path=None):
 
-    eta_hist   = u_hist[..., 0]
-    delta_hist = u_hist[..., 1]
-    gamma_hist = u_hist[..., 2]
+    t = t_hist.detach().cpu().numpy()[:-1]
+
+    eta   = u_hist[..., 0].detach().cpu().numpy()
+    delta = u_hist[..., 1].detach().cpu().numpy()
+    gamma = u_hist[..., 2].detach().cpu().numpy()
 
     fig, ax = plt.subplots(3, 1, sharex=True, figsize=(7,5))
 
-    ax[0].plot(t_hist.detach().cpu().numpy()[:-1], eta_hist.detach().cpu().numpy(), c='0.8')
+    ax[0].plot(t, eta, c='0.8', lw=0.5)
+    ax[0].plot(t, eta.mean(axis=1), c='C0', lw=2)
     ax[0].text(0.01, 0.8, r'Power allocated proportion $\eta_t \in [0,1]$', transform=ax[0].transAxes)
 
     ax[1].axhline(0, linestyle='--', c='0.0')
-    ax[1].plot(t_hist.detach().cpu().numpy()[:-1], delta_hist.detach().cpu().numpy(), c='0.8')
+    ax[1].plot(t, delta, c='0.8', lw=0.5)
+    ax[1].plot(t, delta.mean(axis=1), c='C0', lw=2)
     ax[1].text(0.01, 0.8, r'Charge/discharge energy proportion $\delta_t \in [-1,1]$', transform=ax[1].transAxes)
 
-    ax[2].plot(t_hist.detach().cpu().numpy()[:-1], gamma_hist.detach().cpu().numpy(), c='0.8')
+    ax[2].plot(t, gamma, c='0.8', lw=0.5)
+    ax[2].plot(t, gamma.mean(axis=1), c='C0', lw=2)
     ax[2].text(0.01, 0.8, r'Energy purchase proportion $\gamma_t \in [0,1]$', transform=ax[2].transAxes)
 
     ax[2].set_xticks(np.arange(0,24,4))
@@ -151,11 +166,11 @@ def plot_control_trajectories(t_hist, u_hist, save_path=None):
 
 def plot_cost_trajectories(t_hist, c_hist, J_episode=None, save_path=None):
 
-    plt.plot(
-        t_hist.detach().cpu().numpy()[:-1],
-        c_hist.detach().cpu().numpy(),
-        c='0.8'
-    )
+    t = t_hist.detach().cpu().numpy()[:-1]
+    c = c_hist.detach().cpu().numpy()
+
+    plt.plot(t, c, c='0.8', lw=0.5)
+    plt.plot(t, c.mean(axis=1), c='C0', lw=2)
 
     plt.axhline(0, linestyle='--', c='0.0')
 
@@ -175,5 +190,123 @@ def plot_cost_trajectories(t_hist, c_hist, J_episode=None, save_path=None):
 
     if save_path is not None:
         plt.savefig(save_path, bbox_inches='tight')
+
+    plt.show()
+
+
+def plot_variable_across_lambdas(traj_results, key, title, filename, alpha=0.5, linewidth=2):
+    lambdas = list(traj_results.keys())
+
+    fig, axes = plt.subplots(2, 2, figsize=(10, 6), sharex=True, sharey=True)
+    axes = axes.flatten()
+
+    for ax, lambda_cost in zip(axes, lambdas):
+        res = traj_results[lambda_cost]
+
+        t = res["t_hist"].numpy()
+
+        if key == "N": y = res["S_hist"][:, :, 0].numpy()
+        elif key == "D": y = res["S_hist"][:, :, 1].numpy()
+        elif key == "E": y = res["S_hist"][:, :, 2].numpy()
+        elif key == "P": y = res["S_hist"][:, :, 3].numpy()
+        elif key == "eta": y = res["u_hist"][:, :, 0].numpy()
+        elif key == "delta": y = res["u_hist"][:, :, 1].numpy()
+        elif key == "gamma": y = res["u_hist"][:, :, 2].numpy()
+        elif key == "A": y = res["A_hist"].numpy()
+        elif key == "B": y = res["B_hist"].numpy()
+        elif key == "c": y = res["c_hist"].numpy()
+        else:
+            raise ValueError(f"Unknown key: {key}")
+
+        n = min(len(t), y.shape[0])
+        t = t[:n]
+        y = y[:n, :]
+
+        ax.plot(t, y, c="0.8", alpha=alpha, linewidth=linewidth)
+
+        y_mean = y.mean(axis=1)
+        ax.plot(t, y_mean, linewidth=linewidth)
+
+        ax.text(
+            0.04, 0.9,
+            rf"$\lambda = {lambda_cost}$",
+            transform=ax.transAxes,
+            fontsize=15,
+            weight="bold"
+        )
+
+
+    for ax in axes[-2:]:
+        ax.set_xlabel(r"Time $t$ (hrs)")
+
+    fig.suptitle(title)
+    plt.tight_layout()
+    fig.savefig(filename, bbox_inches="tight", dpi=300)
+    plt.show()
+
+
+def plot_mean_trajectory_summary(traj_results, untrained_res, save_path=None):
+
+    fig, ax = plt.subplots(2, 3, figsize=(13, 8), sharex=True)
+    ax = ax.flatten()
+
+    plot_specs = [
+        ("eta", r"Control $\bar{\eta}_t$", r""),
+        ("delta", r"Control $\bar{\delta}_t$", r""),
+        ("gamma", r"Control $\bar{\gamma}_t$", r""),
+        ("q", r"EV power allocation $\bar{q}_t$", r"kW"),
+        ("E", r"Stored energy $\bar{E}_t$", r"kWh"),
+        ("Ub", r"Purchased energy $\bar{U}^{b}_t$", r"kWh"),
+    ]
+
+    linestyles = ["-", "--", "-.", ":"]
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
+
+    def get_series(res, key):
+        t = res["t_hist"].numpy()
+
+        if key == "E":
+            y = res["S_hist"][:, :, 2].numpy()
+        elif key == "eta":
+            y = res["u_hist"][:, :, 0].numpy(); t = t[:-1]
+        elif key == "delta":
+            y = res["u_hist"][:, :, 1].numpy(); t = t[:-1]
+        elif key == "gamma":
+            y = res["u_hist"][:, :, 2].numpy(); t = t[:-1]
+        elif key == "q":
+            y = res["endog_hist"][:, :, 0].numpy(); t = t[:-1]
+        elif key == "Ub":
+            y = res["endog_hist"][:, :, 3].numpy(); t = t[:-1]
+        else:
+            raise ValueError(f"Unknown key: {key}")
+
+        y_mean = y.mean(axis=1)
+        n = min(len(t), len(y_mean))
+        return t[:n], y_mean[:n]
+
+    for j, (key, title, ylabel) in enumerate(plot_specs):
+
+        t, y_mean = get_series(untrained_res, key)
+        ax[j].plot(t, y_mean, linestyle=(0, (3, 1, 1, 1)), color="0.35", linewidth=2, label="Untrained")
+
+        for i, (lambda_cost, res) in enumerate(traj_results.items()):
+            t, y_mean = get_series(res, key)
+            ax[j].plot(t, y_mean, linestyle=linestyles[i], color=colors[i], linewidth=2, label=rf"$\lambda={lambda_cost}$")
+
+        ax[j].text(0.95, 0.95, title, transform=ax[j].transAxes, fontsize=13, ha="right", va="top", bbox=dict(facecolor="white", alpha=0.8, edgecolor="none"))
+
+        if ylabel:
+            ax[j].set_ylabel(ylabel)
+
+    for a in ax[-3:]:
+        a.set_xlabel(r"Time $t$ (hrs)")
+
+    handles, labels = ax[0].get_legend_handles_labels()
+    legend = fig.legend(handles, labels, loc="upper center", ncol=5, bbox_to_anchor=(0.5, 1.05), frameon=False)
+
+    plt.tight_layout()
+
+    if save_path is not None:
+        fig.savefig(save_path, bbox_inches="tight", bbox_extra_artists=[legend])
 
     plt.show()

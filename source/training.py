@@ -10,6 +10,7 @@ import torch
 from torch import optim
 
 import time
+import os
 
 from source.stochastic_processes import make_price_function
 from source.simulation import rollout_trajectory
@@ -74,7 +75,8 @@ def train_net(
     alpha_grid: float = 0.0,
     batch_size: int = 64,
     seed_base: int = 123,
-    verbose: bool = True
+    verbose: bool = True,
+    checkpoint_dir: str | None = None
 ):
 
   pred_J_eval = None
@@ -89,7 +91,6 @@ def train_net(
 
   for epoch in range(1, epochs + 1):
 
-      # Stochastic
       J_train = train_step(
           policy=policy,
           optimizer=optimizer,
@@ -113,7 +114,6 @@ def train_net(
           best_epoch = epoch
           best_state = {k: v.detach().cpu().clone() for k, v in policy.state_dict().items()}
 
-      # Deterministic
       if epoch % print_each == 0:
           with torch.no_grad():
             next_price_fn_eval = make_price_function(endog_history, future_endog, params)
@@ -125,33 +125,37 @@ def train_net(
                 alpha_grid=alpha_grid,
                 params=params,
                 next_price_fn=next_price_fn_eval,
-                stochastic=False,                 # mean: A=delta(t)·dt, B=phi·N, e=mu
+                stochastic=False,
                 seed=seed_base,
                 device=device,
             )
 
           J_eval_hist.append(J_eval.item())
+
           if verbose:
             print(f"[{epoch:03d}] J_train={J_train:.4f} | J_eval(det)={J_eval.item():.4f}")
 
-
-  # Save best checkpoint
-  if best_state is not None:
-      torch.save({"state_dict": best_state,
-                  "best_J": best_J,
-                  "params": vars(params)},
-                  "policy_best.pt")
-      dt = time.time() - t0
-      print(f"\nTraining ready in {dt:.1f}s. Epoch: {best_epoch}. Best J={best_J:.4f}")
-
-
   last_state = {k: v.detach().cpu().clone() for k, v in policy.state_dict().items()}
-  torch.save({"state_dict": last_state, "last_J": J_train, "params": vars(params)}, "policy_last.pt")
 
+  dt = time.time() - t0
+  print(f"\nTraining ready in {dt:.1f}s. Epoch: {best_epoch}. Best J={best_J:.4f}")
 
-  print("\nSaved policies:")
-  print(f" - Best policy:  policy_best.pt  (epoch {best_epoch}, J={best_J:.4f})")
-  print(f" - Last policy:  policy_last.pt  (epoch {epoch}, J={J_train:.4f})")
+  if checkpoint_dir is not None:
+      os.makedirs(checkpoint_dir, exist_ok=True)
+
+      torch.save(
+          {"state_dict": best_state, "best_J": best_J, "params": vars(params)},
+          os.path.join(checkpoint_dir, "policy_best.pt")
+      )
+
+      torch.save(
+          {"state_dict": last_state, "last_J": J_train, "params": vars(params)},
+          os.path.join(checkpoint_dir, "policy_last.pt")
+      )
+
+      print("\nSaved policies:")
+      print(f" - Best policy:  {os.path.join(checkpoint_dir, 'policy_best.pt')}  (epoch {best_epoch}, J={best_J:.4f})")
+      print(f" - Last policy:  {os.path.join(checkpoint_dir, 'policy_last.pt')}  (epoch {epoch}, J={J_train:.4f})")
 
   return {
       "best_state": best_state,

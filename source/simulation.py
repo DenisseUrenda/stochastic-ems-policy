@@ -120,8 +120,12 @@ def rollout_trajectory(
 
 
 
-def sample_initial_state(batch_size, params, device=None):
+def sample_initial_state(batch_size, params, device=None, seed=None):
+
     device = device or torch.device("cpu")
+
+    if seed is not None:
+        torch.manual_seed(seed)
 
     N0 = torch.randint(0, 3, (batch_size, 1), dtype=torch.float32, device=device)
     D0 = N0 * params.d_avg

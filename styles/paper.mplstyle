@@ -7,6 +7,10 @@ ytick.left : True
 ytick.right : True
 ytick.direction : in
 
+# Axes
+axes.spines.top : True
+axes.spines.right : True
+
 # Grid
 axes.grid : True
 grid.linestyle : -
@@ -16,13 +20,20 @@ grid.alpha : 0.05
 # Fonts
 font.size : 16
 axes.labelsize : 16
+axes.titlesize : 16
+
 xtick.labelsize : 14
 ytick.labelsize : 14
+
 legend.fontsize : 15
 
 # Figure
 figure.figsize : 8, 5
 figure.dpi : 120
 
+# Lines
+lines.linewidth : 1.5
+
 # Save
 savefig.bbox : tight
+savefig.dpi : 300

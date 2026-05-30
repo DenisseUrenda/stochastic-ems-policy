@@ -1,4 +1,4 @@
-# Stochastic Energy Management System
+# (OLD VERSION) Stochastic Energy Management System
 Energy Management System with grid and battery control under stochastic electricity prices and EV arrival/departure dynamics.
 
 ## Overview

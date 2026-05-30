@@ -292,6 +292,14 @@ def plot_variable_across_policies(
 
     plt.show()
 
+    return fig, axes
+
+
+
+
+
+
+
 
 def plot_controls_summary(results, save_path=None):
 
@@ -363,7 +371,11 @@ def plot_controls_summary(results, save_path=None):
         a.set_xlabel(r"Time $t$ (hrs)")
 
     handles, labels = ax[0].get_legend_handles_labels()
-    legend = fig.legend(handles, labels, loc="upper center", ncol=3, bbox_to_anchor=(0.5, 1.05), frameon=False)
+    legend = fig.legend(
+        handles, labels, loc="upper center", 
+        ncol=len(results), bbox_to_anchor=(0.5, 1.05), 
+        frameon=False
+    )
 
     plt.tight_layout()
 
@@ -371,6 +383,8 @@ def plot_controls_summary(results, save_path=None):
         fig.savefig(save_path, bbox_inches="tight", bbox_extra_artists=[legend])
 
     plt.show()
+
+    return fig, ax
 
 
 
@@ -434,6 +448,8 @@ def plot_variable_across_lambdas(traj_results, key, title, filename, alpha=0.5, 
     plt.tight_layout()
     fig.savefig(filename, bbox_inches="tight", dpi=300)
     plt.show()
+
+    return fig, ax
 
 
 def plot_mean_trajectory_summary(traj_results, untrained_res, save_path=None):

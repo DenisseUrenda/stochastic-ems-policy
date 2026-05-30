@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from source.policy import PolicyNet
+    from source.policy import NeuralPolicy
     from source.system import SystemParams
 
 import torch
@@ -16,7 +16,7 @@ from source.stochastic_processes import make_price_function
 from source.simulation import rollout_trajectory
 
 def train_step(
-    policy: PolicyNet,
+    policy: NeuralPolicy,
     optimizer: optim.Optimizer,
     S0_single: torch.Tensor,
     T: float,
@@ -62,7 +62,7 @@ def train_step(
 
 
 def train_net(
-    policy: PolicyNet,
+    policy: NeuralPolicy,
     optimizer: optim.Optimizer,
     device: torch.device,
     params: SystemParams,

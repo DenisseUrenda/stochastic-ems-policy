@@ -3,7 +3,7 @@ from typing import Callable, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
    from source.system import SystemParams
-   from source.policy import PolicyNet
+   from source.policy import NeuralPolicy
 
 import torch
 
@@ -15,7 +15,7 @@ from source.stochastic_processes import arrivals_departures, lambda_intensity, i
 
 # ----- Rollout of the entire trajectory --------------------
 def rollout_trajectory(
-    policy: PolicyNet,
+    policy: NeuralPolicy,
     S0: torch.Tensor,                  # (batch, 4)
     T: float,                    # horizon in hours
     params: SystemParams,

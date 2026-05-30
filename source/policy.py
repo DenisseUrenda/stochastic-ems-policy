@@ -11,8 +11,8 @@ import torch
 import math
 
 # ----- Policy -----------------------------------------------------------------
-# Define neural network called PolicyNet that inherits from nn.Module
-class PolicyNet(nn.Module):
+# Define neural network called NeuralPolicy that inherits from nn.Module
+class NeuralPolicy(nn.Module):
   """
   pi_theta(S_t) -> (eta_t, delta_t, gamma_t) in [0,1]x[-1,1]x[0,1]
   """
@@ -110,3 +110,52 @@ def build_policy_input(t: float, S: torch.Tensor, params: SystemParams):
     policy_input = torch.cat([time_features, S_norm], dim=-1)
 
     return policy_input
+
+
+# ----- Heuristic Policy -----------------------------------------------------------------
+class HeuristicPolicy(nn.Module):
+  def __init__(
+      self,
+      low_price: float = 0.25,
+      high_price: float = 0.75,
+      output_names: list[str] = ["eta", "delta", "gamma"]
+    ):
+    super().__init__()
+
+    if low_price >= high_price:
+      raise ValueError("low_price must be smaller than high_price.")
+
+    self.low_price = low_price
+    self.high_price = high_price
+    self.output_names = output_names
+
+  def forward(self, S: torch.Tensor):
+    batch = S.shape[0]
+    device = S.device
+    dtype = S.dtype
+
+    # input = [sin_t, cos_t, Nn, Dn, En, Pn]
+    price = S[:, 5]
+
+    eta = torch.zeros(batch, device=device, dtype=dtype)
+    delta = torch.zeros(batch, device=device, dtype=dtype)
+    gamma = torch.zeros(batch, device=device, dtype=dtype)
+
+    low_price_mask = price <= self.low_price
+    high_price_mask = price >= self.high_price
+
+    # low price: charge battery from grid
+    eta[low_price_mask] = 1.0
+    delta[low_price_mask] = 1.0
+
+    # high price: discharge/sell battery to grid
+    delta[high_price_mask] = -1.0
+    gamma[high_price_mask] = 1.0
+
+    u = torch.stack([eta, delta, gamma], dim=-1)
+
+    out_dict = {
+      name: u[:, i] for i, name in enumerate(self.output_names)
+    }
+
+    return u, out_dict

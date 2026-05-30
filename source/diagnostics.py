@@ -1,20 +1,22 @@
 
-def check_energy_balance(endog_hist, dt):
+def check_energy_balance(history, dt):
 
-    q_hist  = endog_hist[..., 0]
-    ec_hist = endog_hist[..., 1]
-    ed_hist = endog_hist[..., 2]
-    Ub_hist = endog_hist[..., 3]
-    Us_hist = endog_hist[..., 4]
+    endog = history["endog"]
 
-    lhs = Ub_hist + ed_hist
-    rhs = q_hist * dt + ec_hist + Us_hist
+    q  = endog[..., 0]
+    ec = endog[..., 1]
+    ed = endog[..., 2]
+    Ub = endog[..., 3]
+    Us = endog[..., 4]
+
+    lhs = Ub + ed
+    rhs = q * dt + ec + Us
 
     residual = lhs - rhs
 
     return {
         "max_abs_error": residual.abs().max().item(),
         "mean_abs_error": residual.abs().mean().item(),
-        "mean_Ub": Ub_hist.mean().item(),
-        "max_Ub": Ub_hist.max().item(),
+        "mean_Ub": Ub.mean().item(),
+        "max_Ub": Ub.max().item(),
     }

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Callable, Optional, TYPE_CHECKING
+from typing import Callable, Optional, TYPE_CHECKING, Dict
 
 if TYPE_CHECKING:
    from source.system import SystemParams
@@ -18,13 +18,13 @@ def rollout_trajectory(
     policy: NeuralPolicy,
     S0: torch.Tensor,                  # (batch, 4)
     params: SystemParams,
-    next_price_fn: Callable[[torch.Tensor], torch.Tensor],
+    next_price_fn: Callable[[], torch.Tensor],
     lambda_cost: float = 0.0,
     alpha_grid: float = 0.0,
     stochastic: bool = True,
     seed: int = 123,
     device: Optional[torch.device] = None,
-):
+) -> Dict[str, torch.Tensor]:
     """
     Simulates a full trajectory with time steps of size params.dt.
     Returns tensors containing the history of states, endogenous and actions.
@@ -78,7 +78,7 @@ def rollout_trajectory(
         )
 
       # SARIMA innovations
-      e_t = innovations(t=torch.tensor(t_k).expand(S.shape[0]), stochastic=stochastic)
+      e_t = innovations(t=torch.tensor(t_k).expand(S.shape[0]), stochastic=stochastic, rng=g)
 
       A_hist[k] = A_t
       B_hist[k] = B_t
@@ -93,8 +93,7 @@ def rollout_trajectory(
           next_price_fn=next_price_fn,
           A_t_override=A_t.detach(),
           B_t_override=B_t.detach(),
-          e_t_override=e_t.detach(),
-          rng=g,
+          e_t_override=e_t.detach()
       )
 
 
@@ -115,7 +114,17 @@ def rollout_trajectory(
 
     t_hist[-1] = t0 + steps * params.dt
 
-    return t_hist, S_hist, endog_hist, u_hist, A_hist, B_hist, c_hist, J_episode
+    return {
+        "time": t_hist,
+        "state": S_hist,
+        "endog": endog_hist,
+        "control": u_hist,
+        "arrival": A_hist,
+        "departure": B_hist,
+        "innovation": e_hist,
+        "cost": c_hist,
+        "J_episode": J_episode,
+    }
 
 
 

@@ -5,30 +5,32 @@ import matplotlib.pyplot as plt
 
 
 def plot_arrivals_departures(
-    t_hist,
-    A_hist,
-    B_hist,
+    history,
     dt=0.5,
     n_trajectories=3,
     save_path=None
 ):
     fig, ax = plt.subplots(2, 1, sharex=True)
 
-    n_plot = min(n_trajectories, A_hist.shape[1])
+    time = history["time"]
+    arrival = history["arrival"]
+    departure = history["departure"]
+
+    n_plot = min(n_trajectories, arrival.shape[1])
 
     for tr in range(n_plot):
 
         ax[0].bar(
-            t_hist.detach().cpu().numpy()[1:],
-            A_hist[:, tr].detach().cpu().numpy(),
+            time.detach().cpu().numpy()[1:],
+            arrival[:, tr].detach().cpu().numpy(),
             width=dt * 0.9,
             alpha=0.5,
             label=f"Trajectory {tr+1}"
         )
 
         ax[1].bar(
-            t_hist.detach().cpu().numpy()[1:],
-            B_hist[:, tr].detach().cpu().numpy(),
+            time.detach().cpu().numpy()[1:],
+            departure[:, tr].detach().cpu().numpy(),
             width=dt * 0.9,
             alpha=0.5,
             label=f"Trajectory {tr+1}"
@@ -51,16 +53,19 @@ def plot_arrivals_departures(
 
 
 
-def plot_state_trajectories(t_hist, S_hist, save_path=None):
+def plot_state_trajectories(history, save_path=None):
 
     fig, ax = plt.subplots(4, 1, sharex=True)
 
-    t = t_hist.detach().cpu().numpy()
+    time = history["time"]
+    state = history["state"]
 
-    N = S_hist[..., 0].detach().cpu().numpy()
-    D = S_hist[..., 1].detach().cpu().numpy()
-    E = S_hist[..., 2].detach().cpu().numpy()
-    P = S_hist[..., 3].detach().cpu().numpy()
+    t = time.detach().cpu().numpy()
+
+    N = state[..., 0].detach().cpu().numpy()
+    D = state[..., 1].detach().cpu().numpy()
+    E = state[..., 2].detach().cpu().numpy()
+    P = state[..., 3].detach().cpu().numpy()
 
     ax[0].plot(t, N, c="0.8", lw=0.5)
     ax[0].plot(t, N.mean(axis=1), c="C0", lw=2)
@@ -86,15 +91,18 @@ def plot_state_trajectories(t_hist, S_hist, save_path=None):
     plt.show()
 
 
-def plot_endogenous_trajectories(t_hist, endog_hist, save_path=None):
+def plot_endogenous_trajectories(history, save_path=None):
 
-    t = t_hist.detach().cpu().numpy()
+    time = history["time"]
+    endog = history["endog"]
 
-    q  = endog_hist[..., 0].detach().cpu().numpy()
-    ec = endog_hist[..., 1].detach().cpu().numpy()
-    ed = endog_hist[..., 2].detach().cpu().numpy()
-    Ub = endog_hist[..., 3].detach().cpu().numpy()
-    Us = endog_hist[..., 4].detach().cpu().numpy()
+    t = time.detach().cpu().numpy()
+
+    q  = endog[..., 0].detach().cpu().numpy()
+    ec = endog[..., 1].detach().cpu().numpy()
+    ed = endog[..., 2].detach().cpu().numpy()
+    Ub = endog[..., 3].detach().cpu().numpy()
+    Us = endog[..., 4].detach().cpu().numpy()
 
     fig, ax = plt.subplots(5, 1, sharex=True, figsize=(7,5))
 
@@ -130,13 +138,16 @@ def plot_endogenous_trajectories(t_hist, endog_hist, save_path=None):
 
 
 
-def plot_control_trajectories(t_hist, u_hist, save_path=None):
+def plot_control_trajectories(history, save_path=None):
 
-    t = t_hist.detach().cpu().numpy()[:-1]
+    time = history["time"]
+    control = history["control"]
 
-    eta   = u_hist[..., 0].detach().cpu().numpy()
-    delta = u_hist[..., 1].detach().cpu().numpy()
-    gamma = u_hist[..., 2].detach().cpu().numpy()
+    t = time.detach().cpu().numpy()[:-1]
+
+    eta   = control[..., 0].detach().cpu().numpy()
+    delta = control[..., 1].detach().cpu().numpy()
+    gamma = control[..., 2].detach().cpu().numpy()
 
     fig, ax = plt.subplots(3, 1, sharex=True, figsize=(7,5))
 
@@ -164,10 +175,14 @@ def plot_control_trajectories(t_hist, u_hist, save_path=None):
     plt.show()
 
 
-def plot_cost_trajectories(t_hist, c_hist, J_episode=None, save_path=None):
+def plot_cost_trajectories(history, save_path=None):
 
-    t = t_hist.detach().cpu().numpy()[:-1]
-    c = c_hist.detach().cpu().numpy()
+    time = history["time"]
+    cost = history["cost"]
+    J_episode = history["J_episode"]
+
+    t = time.detach().cpu().numpy()[:-1]
+    c = cost.detach().cpu().numpy()
 
     plt.plot(t, c, c='0.8', lw=0.5)
     plt.plot(t, c.mean(axis=1), c='C0', lw=2)
@@ -203,18 +218,27 @@ def plot_variable_across_lambdas(traj_results, key, title, filename, alpha=0.5, 
     for ax, lambda_cost in zip(axes, lambdas):
         res = traj_results[lambda_cost]
 
-        t = res["t_hist"].numpy()
+        t = res["time"].numpy()
 
-        if key == "N": y = res["S_hist"][:, :, 0].numpy()
-        elif key == "D": y = res["S_hist"][:, :, 1].numpy()
-        elif key == "E": y = res["S_hist"][:, :, 2].numpy()
-        elif key == "P": y = res["S_hist"][:, :, 3].numpy()
-        elif key == "eta": y = res["u_hist"][:, :, 0].numpy()
-        elif key == "delta": y = res["u_hist"][:, :, 1].numpy()
-        elif key == "gamma": y = res["u_hist"][:, :, 2].numpy()
-        elif key == "A": y = res["A_hist"].numpy()
-        elif key == "B": y = res["B_hist"].numpy()
-        elif key == "c": y = res["c_hist"].numpy()
+        if key == "N": y = res["state"][..., 0].numpy()
+        elif key == "D": y = res["state"][..., 1].numpy()
+        elif key == "E": y = res["state"][..., 2].numpy()
+        elif key == "P": y = res["state"][..., 3].numpy()
+
+        elif key == "eta": y = res["control"][..., 0].numpy()
+        elif key == "delta": y = res["control"][..., 1].numpy()
+        elif key == "gamma": y = res["control"][..., 2].numpy()
+
+        elif key == "q": y = res["endog"][..., 0].numpy()
+        elif key == "ec": y = res["endog"][..., 1].numpy()
+        elif key == "ed": y = res["endog"][..., 2].numpy()
+        elif key == "Ub": y = res["endog"][..., 3].numpy()
+        elif key == "Us": y = res["endog"][..., 4].numpy()
+
+        elif key == "A": y = res["arrival"].numpy()
+        elif key == "B": y = res["departure"].numpy()
+
+        elif key == "c": y = res["cost"].numpy()
         else:
             raise ValueError(f"Unknown key: {key}")
 
@@ -257,26 +281,29 @@ def plot_mean_trajectory_summary(traj_results, untrained_res, save_path=None):
         ("q", r"EV power allocation $\bar{q}_t$", r"kW"),
         ("E", r"Stored energy $\bar{E}_t$", r"kWh"),
         ("Ub", r"Purchased energy $\bar{U}^{b}_t$", r"kWh"),
+        ("Us", r"Sold energy $\bar{U}^{s}_t$", r"kWh"),
     ]
 
     linestyles = ["-", "--", "-.", ":"]
     colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
 
     def get_series(res, key):
-        t = res["t_hist"].numpy()
+        t = res["time"].numpy()
 
         if key == "E":
-            y = res["S_hist"][:, :, 2].numpy()
+            y = res["state"][..., 2].numpy()
         elif key == "eta":
-            y = res["u_hist"][:, :, 0].numpy(); t = t[:-1]
+            y = res["control"][..., 0].numpy(); t = t[:-1]
         elif key == "delta":
-            y = res["u_hist"][:, :, 1].numpy(); t = t[:-1]
+            y = res["control"][..., 1].numpy(); t = t[:-1]
         elif key == "gamma":
-            y = res["u_hist"][:, :, 2].numpy(); t = t[:-1]
+            y = res["control"][..., 2].numpy(); t = t[:-1]
         elif key == "q":
-            y = res["endog_hist"][:, :, 0].numpy(); t = t[:-1]
+            y = res["endog"][..., 0].numpy(); t = t[:-1]
         elif key == "Ub":
-            y = res["endog_hist"][:, :, 3].numpy(); t = t[:-1]
+            y = res["endog"][..., 3].numpy(); t = t[:-1]
+        elif key == "Us":
+            y = res["endog"][..., 4].numpy(); t = t[:-1]
         else:
             raise ValueError(f"Unknown key: {key}")
 

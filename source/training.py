@@ -39,7 +39,7 @@ def train_step(
     S0 = S0_single.to(device).repeat(batch_size, 1)
 
     # Trajectory
-    t_hist, S_hist, endog_hist, u_hist, A_hist, B_hist, c_hist, J = rollout_trajectory(
+    history = rollout_trajectory(
         policy=policy,
         S0=S0,
         params=params,
@@ -50,6 +50,8 @@ def train_step(
         seed=seed,
         device=device,
     )
+
+    J = history["J_episode"]
 
     J.backward()
     torch.nn.utils.clip_grad_norm_(policy.parameters(), max_norm=1.0)
@@ -113,7 +115,7 @@ def train_net(
       if epoch % print_each == 0:
           with torch.no_grad():
             next_price_fn_eval = make_price_function(endog_history, future_endog, params)
-            t_hist, S_hist, endog_hist, u_hist, A_hist, B_hist, c_hist, J_eval = rollout_trajectory(
+            history = rollout_trajectory(
                 policy=policy,
                 S0=S0_single.repeat(batch_size, 1),
                 lambda_cost=lambda_cost,
@@ -124,7 +126,7 @@ def train_net(
                 seed=seed_base,
                 device=device,
             )
-
+          J_eval = history["J_episode"]
           J_eval_hist.append(J_eval.item())
 
           if verbose:

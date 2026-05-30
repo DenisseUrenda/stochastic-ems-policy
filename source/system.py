@@ -64,8 +64,7 @@ def system_dynamics(
   A_t_override: torch.Tensor, # Arrivals
   B_t_override: torch.Tensor, # Departures
   e_t_override: torch.Tensor, # Innovations for SARIMA process
-  next_price_fn: Callable[[torch.Tensor], torch.Tensor],
-  rng: Optional[torch.Generator] = None,
+  next_price_fn: Callable[[torch.Tensor], torch.Tensor]
   ) -> torch.Tensor:
   """
   S_{t + delta t} = f(S_t, u_t) with capacity N_max and admitted arrivals tilde A_t.

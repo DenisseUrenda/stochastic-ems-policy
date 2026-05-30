@@ -209,6 +209,173 @@ def plot_cost_trajectories(history, save_path=None):
     plt.show()
 
 
+def plot_variable_across_policies(
+    results,
+    key,
+    title = None,
+    filename = None,
+    figsize = None,
+    alpha=0.3,
+    linewidth=2,
+):
+    policies = list(results.keys())
+    n_policies = len(policies)
+
+    if figsize is None:
+        figsize = (5 * n_policies, 6)
+
+    fig, axes = plt.subplots(
+        1, n_policies, 
+        figsize=figsize,
+        sharex=True, sharey=True
+    )
+
+    if len(policies) == 1:
+        axes = [axes]
+
+    for ax, policy_name in zip(axes, policies):
+
+        hist = results[policy_name]
+
+        t = hist["time"].detach().numpy()
+
+        # ---------- states ----------
+        if key == "N": y = hist["state"][..., 0].detach().numpy()
+        elif key == "D": y = hist["state"][..., 1].detach().numpy()
+        elif key == "E": y = hist["state"][..., 2].detach().numpy()
+        elif key == "P": y = hist["state"][..., 3].detach().numpy()
+
+        # ---------- controls ----------
+        elif key == "eta": y = hist["control"][..., 0].detach().numpy()
+        elif key == "delta": y = hist["control"][..., 1].detach().numpy()
+        elif key == "gamma": y = hist["control"][..., 2].detach().numpy()
+
+        # ---------- endogenous ----------
+        elif key == "q": y = hist["endog"][..., 0].detach().numpy()
+        elif key == "ec": y = hist["endog"][..., 1].detach().numpy()
+        elif key == "ed": y = hist["endog"][..., 2].detach().numpy()
+        elif key == "Ub": y = hist["endog"][..., 3].detach().numpy()
+        elif key == "Us": y = hist["endog"][..., 4].detach().numpy()
+
+        # ---------- events ----------
+        elif key == "A": y = hist["arrival"].detach().numpy()
+        elif key == "B": y = hist["departure"].detach().numpy()
+
+        # ---------- costs ----------
+        elif key == "c": y = hist["cost"].detach().numpy()
+
+        else:
+            raise ValueError(f"Unknown key: {key}")
+
+        n = min(len(t), y.shape[0])
+
+        t = t[:n]
+        y = y[:n]
+        ax.plot(t, y, color="0.8", alpha=alpha, linewidth=1)
+
+        y_mean = y.mean(axis=1)
+        ax.plot(t, y_mean, linewidth=linewidth)
+
+        ax.set_title(policy_name.capitalize())
+
+    axes[0].set_ylabel(title)
+
+    for ax in axes:
+        ax.set_xlabel(r"Time $t$ (hrs)")
+
+    fig.suptitle(title)
+
+    plt.tight_layout()
+
+    if filename is not None:
+        fig.savefig(filename, bbox_inches="tight", dpi=300,)
+
+    plt.show()
+
+
+def plot_controls_summary(results, save_path=None):
+
+    fig, ax = plt.subplots(2, 3, figsize=(13, 8), sharex=True)
+    ax = ax.flatten()
+
+    plot_specs = [
+        ("eta", r"Control $\bar{\eta}_t$", r""),
+        ("delta", r"Control $\bar{\delta}_t$", r""),
+        ("gamma", r"Control $\bar{\gamma}_t$", r""),
+        ("q", r"EV power allocation $\bar{q}_t$", r"kW"),
+        ("E", r"Stored energy $\bar{E}_t$", r"kWh"),
+        ("Ub", r"Purchased energy $\bar{U}^{b}_t$", r"kWh"),
+    ]
+
+    linestyles = [
+        "-",
+        "--",
+        "-.",
+        ":",
+        (0, (5, 1)),
+        (0, (3, 1, 1, 1)),
+    ]
+
+    def get_series(hist, key):
+        t = hist["time"].detach().numpy()
+
+        if key == "E":
+            y = hist["state"][..., 2].detach().numpy()
+        elif key == "eta":
+            y = hist["control"][..., 0].detach().numpy(); t = t[:-1]
+        elif key == "delta":
+            y = hist["control"][..., 1].detach().numpy(); t = t[:-1]
+        elif key == "gamma":
+            y = hist["control"][..., 2].detach().numpy(); t = t[:-1]
+        elif key == "q":
+            y = hist["endog"][..., 0].detach().numpy(); t = t[:-1]
+        elif key == "Ub":
+            y = hist["endog"][..., 3].detach().numpy(); t = t[:-1]
+        else:
+            raise ValueError(f"Unknown key: {key}")
+
+        y_mean = y.mean(axis=1)
+        n = min(len(t), len(y_mean))
+        return t[:n], y_mean[:n]
+
+    for j, (key, title, ylabel) in enumerate(plot_specs):
+
+        for i, (policy_name, hist) in enumerate(results.items()):
+            t, y_mean = get_series(hist, key)
+            ax[j].plot(
+                t, y_mean, 
+                linestyle=linestyles[i % len(linestyles)], 
+                linewidth=2, 
+                label=policy_name.capitalize()
+            )
+
+        ax[j].text(
+            0.95, 0.95, 
+            title, transform=ax[j].transAxes, fontsize=13, 
+            ha="right", va="top", 
+            bbox=dict(facecolor="white", alpha=0.8, edgecolor="none")
+        )
+
+        if ylabel:
+            ax[j].set_ylabel(ylabel)
+
+    for a in ax[-3:]:
+        a.set_xlabel(r"Time $t$ (hrs)")
+
+    handles, labels = ax[0].get_legend_handles_labels()
+    legend = fig.legend(handles, labels, loc="upper center", ncol=3, bbox_to_anchor=(0.5, 1.05), frameon=False)
+
+    plt.tight_layout()
+
+    if save_path is not None:
+        fig.savefig(save_path, bbox_inches="tight", bbox_extra_artists=[legend])
+
+    plt.show()
+
+
+
+
+
 def plot_variable_across_lambdas(traj_results, key, title, filename, alpha=0.5, linewidth=2):
     lambdas = list(traj_results.keys())
 
@@ -281,7 +448,6 @@ def plot_mean_trajectory_summary(traj_results, untrained_res, save_path=None):
         ("q", r"EV power allocation $\bar{q}_t$", r"kW"),
         ("E", r"Stored energy $\bar{E}_t$", r"kWh"),
         ("Ub", r"Purchased energy $\bar{U}^{b}_t$", r"kWh"),
-        ("Us", r"Sold energy $\bar{U}^{s}_t$", r"kWh"),
     ]
 
     linestyles = ["-", "--", "-.", ":"]
@@ -302,8 +468,6 @@ def plot_mean_trajectory_summary(traj_results, untrained_res, save_path=None):
             y = res["endog"][..., 0].numpy(); t = t[:-1]
         elif key == "Ub":
             y = res["endog"][..., 3].numpy(); t = t[:-1]
-        elif key == "Us":
-            y = res["endog"][..., 4].numpy(); t = t[:-1]
         else:
             raise ValueError(f"Unknown key: {key}")
 

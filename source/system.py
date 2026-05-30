@@ -55,7 +55,6 @@ def interval_cost(Pb_t, Ps_t, PEV_t, U_b, U_s, q_t, dt):
 
 
 # ----- System dynamics f(S,u,xi) -----
-
 def system_dynamics(
   S_t: torch.Tensor,
   u_t: torch.Tensor,

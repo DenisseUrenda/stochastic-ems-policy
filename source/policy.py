@@ -114,10 +114,27 @@ def build_policy_input(t: float, S: torch.Tensor, params: SystemParams):
 
 # ----- Heuristic Policy -----------------------------------------------------------------
 class HeuristicPolicy(nn.Module):
+  """
+  EV-first price-threshold heuristic policy.
+
+  eta:
+    power allocation to EV demand
+
+  delta:
+    ESS charge/discharge control
+    delta > 0: charge battery
+    delta < 0: discharge battery
+
+  gamma:
+    grid purchase interpolation
+    gamma = 0: minimum feasible grid purchase
+    gamma = 1: maximum feasible grid purchase
+  """
+
   def __init__(
       self,
-      low_price: float = 0.25,
-      high_price: float = 0.75,
+      low_price: float = 0.17,
+      high_price: float = 0.25,
       output_names: list[str] = ["eta", "delta", "gamma"]
     ):
     super().__init__()
@@ -129,28 +146,32 @@ class HeuristicPolicy(nn.Module):
     self.high_price = high_price
     self.output_names = output_names
 
+
   def forward(self, S: torch.Tensor):
     batch = S.shape[0]
     device = S.device
     dtype = S.dtype
 
-    # input = [sin_t, cos_t, Nn, Dn, En, Pn]
+    # policy input = [sin_t, cos_t, Nn, Dn, En, Pn]
     price = S[:, 5]
 
-    eta = torch.zeros(batch, device=device, dtype=dtype)
+    # Always prioritize EV charging
+    eta = torch.ones(batch, device=device, dtype=dtype)
+
+    # Neutral defaults
     delta = torch.zeros(batch, device=device, dtype=dtype)
-    gamma = torch.zeros(batch, device=device, dtype=dtype)
+    gamma = torch.full((batch,), 0.5, device=device, dtype=dtype)
 
     low_price_mask = price <= self.low_price
     high_price_mask = price >= self.high_price
 
-    # low price: charge battery from grid
-    eta[low_price_mask] = 1.0
+    # Low price: charge ESS and allow maximum feasible grid purchase
     delta[low_price_mask] = 1.0
+    gamma[low_price_mask] = 1.0
 
-    # high price: discharge/sell battery to grid
+    # High price: discharge ESS and use minimum feasible grid purchase
     delta[high_price_mask] = -1.0
-    gamma[high_price_mask] = 1.0
+    gamma[high_price_mask] = 0.0
 
     u = torch.stack([eta, delta, gamma], dim=-1)
 

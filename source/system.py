@@ -19,8 +19,8 @@ class SystemParams:
   kappa: float = 1.1     # (>1) tariff multiplier for EV charging
 
   D_cap: float = 2.0 * d_avg * N_max  # Maximum cumulative demand
-  P_min: float = 0.05                 # Minimum energy price
-  P_max: float = 0.30                 # Maximum energy price
+  P_min: float = 0.00                 # Minimum energy price
+  P_max: float = 0.20                 # Maximum energy price
 
 
 

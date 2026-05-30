@@ -112,7 +112,7 @@ def arrivals_departures(
     lambda_fn: Callable[..., torch.Tensor] = lambda_intensity,
     rng: Optional[torch.Generator] = None,
     idx_n: int = 0,
-    **lambda_kwards
+    **lambda_kwargds
     ) -> torch.Tensor:
   """
   Returns (A_t, B_t) with shape (batch,):
@@ -128,7 +128,7 @@ def arrivals_departures(
   batch = S_t.shape[0]
 
   # ------- arrivals ---------------------
-  lam = lambda_fn(t, **lambda_kwards)
+  lam = lambda_fn(t, **lambda_kwargds)
   if not torch.is_tensor(lam):
       lam = torch.tensor(lam, device=device, dtype=dtype)
   else:
@@ -150,8 +150,7 @@ def arrivals_departures(
   if mask.any():
     if stochastic:
       probs = torch.full_like(N_t[mask], phi)
-      dist = torch.distributions.Binomial(total_count=N_t[mask], probs=probs)
-      B_t[mask] = dist.sample().to(dtype)
+      B_t[mask] = torch.binomial(N_t[mask], probs, generator=rng).to(dtype)
     else:
       B_t[mask] = (phi * N_t[mask])
 
@@ -165,12 +164,16 @@ def innovations(
     df: float = 10.8,
     loc: float = 0.0,
     scale: float = math.sqrt(0.0174),
-    stochastic: bool = True
+    stochastic: bool = True,
+    rng: Optional[torch.Generator] = None
   ) -> torch.Tensor:
+
   n = t.shape[0] if t.ndim > 0 else 1
+
   if stochastic:
     dist = torch.distributions.StudentT(df=df, loc=loc, scale=scale)
     return dist.sample((n,))
+  
   else:
     return torch.tensor(loc).expand(n)
 

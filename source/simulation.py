@@ -17,7 +17,6 @@ from source.stochastic_processes import arrivals_departures, lambda_intensity, i
 def rollout_trajectory(
     policy: NeuralPolicy,
     S0: torch.Tensor,                  # (batch, 4)
-    T: float,                    # horizon in hours
     params: SystemParams,
     next_price_fn: Callable[[torch.Tensor], torch.Tensor],
     lambda_cost: float = 0.0,
@@ -36,7 +35,7 @@ def rollout_trajectory(
     policy = policy.to(device)
     S = S0.to(device)
 
-    steps = int(T / params.dt)
+    steps = int(params.T / params.dt)
     batch = S.size(0)          # Batch size (S has shape (batch, 4))
 
     # Buffers to store the history

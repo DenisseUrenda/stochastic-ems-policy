@@ -1,4 +1,4 @@
-# (OLD VERSION) Stochastic Energy Management System
+# Stochastic Energy Management System
 Energy Management System with grid and battery control under stochastic electricity prices and EV arrival/departure dynamics.
 
 ## Overview
@@ -16,10 +16,11 @@ The current implementation considers:
 
 The repository is intended as supplementary material for the associated research work and contains:
 
-- implementation details
-- experimental notebooks
+- EMS implementation details
+- policy training procedures
+- experimental studies
 - trajectory analysis
-- additional figures and results related to the experiments
+- additional figures and results
 
 ### EMS Architecture
 
@@ -40,11 +41,15 @@ The following diagram summarizes the sequential optimization and rollout structu
 
 ```bash
 .
-├── data/             # External input data (not distributed with the repository)
-├── figures/          # Generated figures and evaluation results
-├── notebooks/        # Training, experimentation, and analysis notebooks
-├── source/           # Core EMS implementation and supporting modules
-├── styles/           # Plotting and visualization styles
+├── data/
+├── figures/
+├── notebooks/ 
+│   ├── 00_sanity_checks.ipynb
+│   ├── 01_training_demo.ipynb
+│   ├── 02_policy_comparison.ipynb
+│   └── 03_lambda_experiments.ipynb
+├── source/
+├── styles/
 ├── README.md
 ├── requirements.txt
 └── .gitignore
@@ -61,100 +66,130 @@ The `source/` directory contains the core implementation of the Energy Managemen
 - training routines
 - general utilities
 
-### Data Availability
+## Data
 
-The electricity price data used in this work is not included in the repository.
+The experiments use a preprocessed electricity price time series derived from the ERCOT Real-Time Settlement Point Prices (SPP) database.
 
-The original price information was obtained from the ERCOT Real-Time Settlement Point Prices (SPP) dataset:
+The file expected by the notebooks is:
 
-[ERCOT Real-Time Settlement Point Prices (SPP)](https://www.ercot.com/content/cdr/html/real_time_spp.html)
+```text
+data/eprice_test.csv
+```
 
-The experiments were conducted using a preprocessed subset of the original ERCOT data.
+This file is not distributed with the repository.
 
+Expected file format:
 
-## Notebooks
+- CSV file
+- Single column
+- No header
+- Hourly electricity prices
+- Original units: $/MWh
+- Internally converted to $/kWh
+- At least 48 observations
 
-### 00 — Sanity Checks
+The first 24 observations (one day) are used as historical data to initialize the stochastic price model, while the following 24 observations are used as the future reference trajectory for a complete 24-hour rollout:
 
-Contains:
-- environment validation
-- dependency verification
-- preliminary testing utilities
+```python
+energy_prices = read_csv("../data/eprice_test.csv")
+price_history = energy_prices[:params.T]
+future_price = energy_prices[params.T:]
+```
 
+The stochastic price process is modeled using a SARIMA model with the following orders:
 
-### 01 — Training Demo
+```python
+order = (1, 1, 1)
+seasonal_order = (1, 1, 1, 24)
+```
 
-Implements:
-- neural policy training
-- stochastic trajectory rollouts
-- objective function optimization
-- training diagnostics
-
-
-### 02 — Lambda Experiments
-
-Contains:
-- policy training under different λ values
-- checkpoint generation
-- comparative training runs
-
-**Note:** Trained checkpoints are saved to the `checkpoints/` directory. This directory is not distributed with the repository and is generated locally during training.
-
-### 03 — Results
-
-Generates:
-- final evaluation figures
-- trajectory summaries
-- cost analysis
-- policy comparison plots
-- figures used in the associated research work
-
-## Example Results
-
-### Main Trajectory Summary
-
-Average trajectories under different parameter configurations, illustrating the temporal evolution of battery energy, power allocation, charging/discharging dynamics, and grid energy purchase.
-
-<p align="center">
-  <img src="figures/lambda_mean_trajectory_summary.png" width="600">
-</p>
-
-High-resolution figure:
-[PDF version](figures/lambda_mean_trajectory_summary.pdf)
+Although the EMS simulation can use a smaller internal time step (e.g., `dt = 0.5` hours), electricity prices are provided at hourly resolution. The implementation performs the required interpolation internally.
 
 
-### Training Convergence
+## Experimental Studies
 
-Training and evaluation average total cost trajectories across different parameter configurations during policy optimization.
+### Experiment 1 — Policy Comparison
 
-<p align="center">
-  <img src="figures/objective_vs_epochs.png" width="600">
-</p>
+This experiment compares three control strategies under identical stochastic scenarios:
 
-High-resolution figure:
-[PDF version](figures/objective_vs_epochs.pdf)
+- Heuristic policy
+- Untrained neural policy
+- Trained neural policy
 
+The objective is to evaluate whether training produces meaningful control behavior and cost improvements relative to simple baselines.
 
-### Interval Cost Trajectories
+Generated outputs include:
 
-Interval cost evolution under different parameter configurations. Gray trajectories correspond to individual realizations, while the blue curve represents the average behavior.
+- state trajectories
+- control trajectories
+- energy flow trajectories
+- interval costs
+- cumulative cost comparisons
+- training curves
 
-<p align="center">
-  <img src="figures/lambda_cost_many.png" width="600">
-<\p>
+Notebook:
 
-High-resolution figure:
-[PDF version](figures/lambda_cost_many.pdf)
+```bash
+notebooks/02_policy_comparison.ipynb
+```
+
+### Experiment 2 — Lambda Experiments
+
+This experiment studies the effect of introducing a risk-sensitive term into the objective function.
+
+The parameter λ penalizes positive interval costs during optimization, encouraging more conservative decision-making.
+
+Different λ values are trained and evaluated under identical stochastic scenarios.
+
+Generated outputs include:
+
+- policy checkpoints
+- training convergence curves
+- state trajectory comparisons
+- control trajectory comparisons
+- energy flow comparisons
+- cost analysis across λ values
+
+Notebook:
+
+```bash
+notebooks/03_lambda_experiments.ipynb
+```
+
+## Checkpoints
+
+Training checkpoints are generated locally during experimentation and are not included in the repository.
+
+Typical checkpoint files include:
+
+- trained_policy.pt
+- untrained_policy.pt
+- policy_lambda_0_0.pt
+- policy_lambda_0_1.pt
+- policy_lambda_0_25.pt
+- policy_lambda_0_5.pt
+
+Users running the notebooks will generate these files automatically in their local environment.
+
+## Data Availability
+
+The electricity price dataset used in the experiments is derived from the ERCOT Real-Time Settlement Point Prices (SPP) database.
+
+The preprocessed file used during development is not distributed with this repository. Users interested in reproducing the experiments should obtain the original data directly from ERCOT and generate the corresponding input time series described in the Data section.
+
+ERCOT Real-Time Settlement Point Prices (SPP):
+https://www.ercot.com/content/cdr/html/real_time_spp.html
 
 
 ## Notes
 
 - The repository follows a research-oriented workflow built around reusable Python modules and Jupyter notebooks.
-- Figures are provided in PDF format for high-resolution visualization and PNG format for README previews.
+- Figures are generated directly within each experiment notebook.
+- Checkpoints are saved automatically to support reproducible evaluations.
 - The code is intended as supplementary material accompanying the associated research work.
 
 
 ## Author
-Denisse Urenda Castañeda
+**Denisse Urenda Castañeda**
 
 PhD Student in Data Science — UTEP

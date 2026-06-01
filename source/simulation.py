@@ -20,6 +20,7 @@ def rollout_trajectory(
     params: SystemParams,
     next_price_fn: Callable[[], torch.Tensor],
     lambda_cost: float = 0.0,
+    lambda_demand: float = 0.0,
     alpha_grid: float = 0.0,
     stochastic: bool = True,
     seed: int = 123,
@@ -97,7 +98,7 @@ def rollout_trajectory(
       )
 
 
-      U_b = endog[:, 3]   # Grid usage ------------
+      U_b = endog[:, 3]
       c = c + alpha_grid * U_b.pow(2)
 
       S_hist[k + 1] = S
@@ -109,7 +110,10 @@ def rollout_trajectory(
     c_pos = torch.clamp(c_hist, min=0.0)
     c_total = c_hist + lambda_cost * c_pos
 
-    J_per_traj = c_total.sum(dim=0)
+    D_T = S[:, 1]  #############
+    terminal_penalty = lambda_demand * D_T.pow(2) ###################
+
+    J_per_traj = c_total.sum(dim=0) + terminal_penalty ####################
     J_episode  = J_per_traj.mean()
 
     t_hist[-1] = t0 + steps * params.dt

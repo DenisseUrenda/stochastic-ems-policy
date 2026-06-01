@@ -96,8 +96,15 @@ def system_dynamics(
   # (3) Pending demand
   # delivered in the step: q_t = eta * D_t / dt
   # loss due to departures: b_t * B_t, where b_t = D_t / max(N_t, epsilon)
-  q_t = eta * D_t / params.dt
-  q_t = torch.minimum(q_t, N_t * params.q_max)
+  q_capacity = torch.minimum(
+      D_t / params.dt,
+      N_t * params.q_max
+  )
+  q_t = eta * q_capacity
+
+
+  #q_t = eta * D_t / params.dt
+  #q_t = torch.minimum(q_t, N_t * params.q_max)
   b_t = torch.where(N_t > 0.0, D_t / torch.clamp(N_t, min=1e-6), torch.zeros_like(D_t))
   D_next = D_t + params.d_avg * A_adm - q_t * params.dt - b_t * B_t
   D_next = torch.clamp(D_next, min=0.0)

@@ -296,7 +296,72 @@ def plot_variable_across_policies(
 
 
 
+from itertools import cycle
 
+def plot_policy_metric(results, metric_key="cost", metric_idx=None, ax=None, policies=None):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 4))
+
+    if policies is None:
+        policies = list(results.keys())
+
+    colors = cycle([
+        "#4C78A8",
+        "#F28E2B",
+        "#59A14F",
+        "#B07AA1",
+        "#76B7B2",
+        "#E15759",
+        "#9C755F",
+        "#BAB0AC",
+    ])
+
+    markers = cycle(["o", "s", "^", "D", "v", "P", "X", "*"])
+
+    reference_policy = policies[0]
+    time = results[reference_policy]["time"].detach().numpy()
+
+    handles = []
+    labels = []
+
+    for policy_name, color, marker in zip(policies, colors, markers):
+        history = results[policy_name]
+        y = history[metric_key].detach().numpy()
+
+        if metric_idx is not None:
+            y = y[..., metric_idx]
+
+        y_mean = y.mean(axis=1)
+
+        if len(y_mean) == len(time):
+            x = time
+        elif len(y_mean) == len(time) - 1:
+            x = time[:-1]
+        else:
+            raise ValueError(
+                f"Time length {len(time)} is not compatible with {metric_key} length {len(y_mean)}."
+            )
+
+        line = ax.plot(
+            x,
+            y_mean,
+            color=color,
+            lw=1.5,
+            alpha=0.8,
+            marker=marker,
+            ms=4,
+            markevery=3,
+            label=policy_name,
+        )
+
+        handles += line
+        labels.append(policy_name)
+
+    ax.set_xlabel("Time (hour)")
+    ax.xaxis.grid(False)
+    ax.yaxis.grid(True, alpha=0.10)
+
+    return ax, handles, labels
 
 
 

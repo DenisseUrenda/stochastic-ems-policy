@@ -64,6 +64,9 @@ def summarize_histories(histories: dict) -> pd.DataFrame:
             if idx is not None:
                 x = x[..., idx]
 
-            summary[policy_name][var_name] = x.mean().item()
+            summary[policy_name][f"{var_name}_mean"] = x.mean().item()
+            
+            if x.numel() > 1:
+                summary[policy_name][f"{var_name}_std"] = x.std().item()
 
     return pd.DataFrame(summary)

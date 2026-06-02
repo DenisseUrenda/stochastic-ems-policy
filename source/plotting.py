@@ -422,15 +422,7 @@ def plot_controls_summary(results, save_path=None):
                 label=policy_name.capitalize()
             )
 
-        ax[j].text(
-            0.95, 0.95, 
-            title, transform=ax[j].transAxes, fontsize=13, 
-            ha="right", va="top", 
-            bbox=dict(facecolor="white", alpha=0.8, edgecolor="none")
-        )
-
-        if ylabel:
-            ax[j].set_ylabel(ylabel)
+        ax[j].set_ylabel(title)
 
     for a in ax[-3:]:
         a.set_xlabel(r"Time $t$ (hrs)")
@@ -453,132 +445,102 @@ def plot_controls_summary(results, save_path=None):
 
 
 
+import numpy as np
+import matplotlib.pyplot as plt
+from itertools import cycle
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
+from matplotlib.legend_handler import HandlerTuple
 
 
-def plot_variable_across_lambdas(traj_results, key, title, filename, alpha=0.5, linewidth=2):
-    lambdas = list(traj_results.keys())
+def plot_policy_percentile_bands(
+    results,
+    metric_key,
+    metric_idx=None,
+    ax=None,
+    policies=None,
+    show_mean=True,
+    add_legend=True,
+    quantiles=(5, 95),
+    colors=None
+):
 
-    fig, axes = plt.subplots(2, 2, figsize=(10, 6), sharex=True, sharey=True)
-    axes = axes.flatten()
+    if ax is None:
+        _, ax = plt.subplots(figsize=(6, 4))
 
-    for ax, lambda_cost in zip(axes, lambdas):
-        res = traj_results[lambda_cost]
+    if colors is None:
+        colors = ["tab:blue"]
+    if isinstance(colors, str):
+        colors = [colors]
+    
+    colors = cycle(colors)
 
-        t = res["time"].numpy()
+    alphas = np.linspace(0.2, 0.5, len(results))
 
-        if key == "N": y = res["state"][..., 0].numpy()
-        elif key == "D": y = res["state"][..., 1].numpy()
-        elif key == "E": y = res["state"][..., 2].numpy()
-        elif key == "P": y = res["state"][..., 3].numpy()
+    linestyles = cycle([
+        "-",
+        "--",
+        "-.",
+        ":",
+        (0, (5, 1)),
+        (0, (3, 1, 1, 1)),
+    ])
 
-        elif key == "eta": y = res["control"][..., 0].numpy()
-        elif key == "delta": y = res["control"][..., 1].numpy()
-        elif key == "gamma": y = res["control"][..., 2].numpy()
+    items = results.items()
+    if policies is not None:
+        items = [(k, results[k]) for k in policies]
 
-        elif key == "q": y = res["endog"][..., 0].numpy()
-        elif key == "ec": y = res["endog"][..., 1].numpy()
-        elif key == "ed": y = res["endog"][..., 2].numpy()
-        elif key == "Ub": y = res["endog"][..., 3].numpy()
-        elif key == "Us": y = res["endog"][..., 4].numpy()
+    legend_handles = []
+    legend_labels = []
 
-        elif key == "A": y = res["arrival"].numpy()
-        elif key == "B": y = res["departure"].numpy()
+    for i, (key, res) in enumerate(items):
 
-        elif key == "c": y = res["cost"].numpy()
-        else:
-            raise ValueError(f"Unknown key: {key}")
+        color = next(colors)
+        linestyle = next(linestyles)
+        alpha = alphas[i]
 
-        n = min(len(t), y.shape[0])
-        t = t[:n]
-        y = y[:n, :]
+        var = res[metric_key]
+        time = res["time"]
 
-        ax.plot(t, y, c="0.8", alpha=alpha, linewidth=linewidth)
+        if metric_idx is not None:
+            var = var[..., metric_idx]
 
-        y_mean = y.mean(axis=1)
-        ax.plot(t, y_mean, linewidth=linewidth)
+        if len(time) != var.shape[0]:
+            time = time[:var.shape[0]]
 
-        ax.text(
-            0.04, 0.9,
-            rf"$\lambda = {lambda_cost}$",
-            transform=ax.transAxes,
-            fontsize=15,
-            weight="bold"
+        mean = var.mean(axis=1)
+        p1 = np.percentile(var, quantiles[0], axis=1)
+        p2 = np.percentile(var, quantiles[1], axis=1)
+
+        ax.fill_between(
+            time, p1, p2, color=color, alpha=alpha
         )
 
+        if show_mean:
+            ax.plot(
+                time, mean, color=color, linestyle=linestyle, linewidth=1.2, alpha=alpha*(1/0.8)
+            )
 
-    for ax in axes[-2:]:
-        ax.set_xlabel(r"Time $t$ (hrs)")
-
-    fig.suptitle(title)
-    plt.tight_layout()
-    fig.savefig(filename, bbox_inches="tight", dpi=300)
-    plt.show()
-
-    return fig, ax
-
-
-def plot_mean_trajectory_summary(traj_results, untrained_res, save_path=None):
-
-    fig, ax = plt.subplots(2, 3, figsize=(13, 8), sharex=True)
-    ax = ax.flatten()
-
-    plot_specs = [
-        ("eta", r"Control $\bar{\eta}_t$", r""),
-        ("delta", r"Control $\bar{\delta}_t$", r""),
-        ("gamma", r"Control $\bar{\gamma}_t$", r""),
-        ("q", r"EV power allocation $\bar{q}_t$", r"kW"),
-        ("E", r"Stored energy $\bar{E}_t$", r"kWh"),
-        ("Ub", r"Purchased energy $\bar{U}^{b}_t$", r"kWh"),
-    ]
-
-    linestyles = ["-", "--", "-.", ":"]
-    colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
-
-    def get_series(res, key):
-        t = res["time"].numpy()
-
-        if key == "E":
-            y = res["state"][..., 2].numpy()
-        elif key == "eta":
-            y = res["control"][..., 0].numpy(); t = t[:-1]
-        elif key == "delta":
-            y = res["control"][..., 1].numpy(); t = t[:-1]
-        elif key == "gamma":
-            y = res["control"][..., 2].numpy(); t = t[:-1]
-        elif key == "q":
-            y = res["endog"][..., 0].numpy(); t = t[:-1]
-        elif key == "Ub":
-            y = res["endog"][..., 3].numpy(); t = t[:-1]
+            legend_handles.append(
+                (
+                    Patch(facecolor=color, alpha=alpha),
+                    Line2D([0], [0], color=color, linestyle=linestyle, linewidth=1.2, alpha=alpha*(1/0.8)
+                    ),
+                )
+            )
         else:
-            raise ValueError(f"Unknown key: {key}")
+            legend_handles.append(
+                Patch(facecolor=color, alpha=alpha)
+            )
 
-        y_mean = y.mean(axis=1)
-        n = min(len(t), len(y_mean))
-        return t[:n], y_mean[:n]
+        legend_labels.append(key)
 
-    for j, (key, title, ylabel) in enumerate(plot_specs):
+    if add_legend:
+        ax.legend(
+            legend_handles,
+            legend_labels,
+            handler_map={tuple: HandlerTuple(ndivide=1)},
+            frameon=False,
+        )
 
-        t, y_mean = get_series(untrained_res, key)
-        ax[j].plot(t, y_mean, linestyle=(0, (3, 1, 1, 1)), color="0.35", linewidth=2, label="Untrained")
-
-        for i, (lambda_cost, res) in enumerate(traj_results.items()):
-            t, y_mean = get_series(res, key)
-            ax[j].plot(t, y_mean, linestyle=linestyles[i], color=colors[i], linewidth=2, label=rf"$\lambda={lambda_cost}$")
-
-        ax[j].text(0.95, 0.95, title, transform=ax[j].transAxes, fontsize=13, ha="right", va="top", bbox=dict(facecolor="white", alpha=0.8, edgecolor="none"))
-
-        if ylabel:
-            ax[j].set_ylabel(ylabel)
-
-    for a in ax[-3:]:
-        a.set_xlabel(r"Time $t$ (hrs)")
-
-    handles, labels = ax[0].get_legend_handles_labels()
-    legend = fig.legend(handles, labels, loc="upper center", ncol=5, bbox_to_anchor=(0.5, 1.05), frameon=False)
-
-    plt.tight_layout()
-
-    if save_path is not None:
-        fig.savefig(save_path, bbox_inches="tight", bbox_extra_artists=[legend])
-
-    plt.show()
+    return ax, legend_handles, legend_labels

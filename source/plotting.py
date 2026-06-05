@@ -366,44 +366,65 @@ def plot_policy_metric(results, metric_key="cost", metric_idx=None, ax=None, pol
 
 
 
+from itertools import cycle
+import matplotlib.pyplot as plt
+
 def plot_controls_summary(results, save_path=None):
 
     fig, ax = plt.subplots(2, 3, figsize=(13, 8), sharex=True)
     ax = ax.flatten()
 
     plot_specs = [
-        ("eta", r"Control $\bar{\eta}_t$", r""),
-        ("delta", r"Control $\bar{\delta}_t$", r""),
-        ("gamma", r"Control $\bar{\gamma}_t$", r""),
-        ("q", r"EV power allocation $\bar{q}_t$", r"kW"),
-        ("E", r"Stored energy $\bar{E}_t$", r"kWh"),
-        ("Ub", r"Purchased energy $\bar{U}^{b}_t$", r"kWh"),
+        ("eta", r"Control $\bar{\eta}_t$"),
+        ("delta", r"Control $\bar{\delta}_t$"),
+        ("gamma", r"Control $\bar{\gamma}_t$"),
+        ("q", r"EV power allocation $\bar{q}_t$"),
+        ("E", r"Stored energy $\bar{E}_t$"),
+        ("Ub", r"Purchased energy $\bar{U}^{b}_t$"),
     ]
 
-    linestyles = [
-        "-",
-        "--",
-        "-.",
-        ":",
-        (0, (5, 1)),
-        (0, (3, 1, 1, 1)),
-    ]
+    color_cycle = cycle([
+        "#4C78A8",
+        "#F28E2B",
+        "#59A14F",
+        "#B07AA1",
+        "#76B7B2",
+        "#E15759",
+        "#9C755F",
+        "#BAB0AC",
+    ])
+
+    marker_cycle = cycle(["o", "s", "^", "D", "v", "P", "X", "*"])
+
+    policy_styles = {
+        name: {
+            "color": next(color_cycle),
+            "marker": next(marker_cycle),
+            "label": name.replace("_", " ").title(),
+        }
+        for name in results.keys()
+    }
 
     def get_series(hist, key):
-        t = hist["time"].detach().numpy()
+        t = hist["time"].detach().cpu().numpy()
 
         if key == "E":
-            y = hist["state"][..., 2].detach().numpy()
+            y = hist["state"][..., 2].detach().cpu().numpy()
         elif key == "eta":
-            y = hist["control"][..., 0].detach().numpy(); t = t[:-1]
+            y = hist["control"][..., 0].detach().cpu().numpy()
+            t = t[:-1]
         elif key == "delta":
-            y = hist["control"][..., 1].detach().numpy(); t = t[:-1]
+            y = hist["control"][..., 1].detach().cpu().numpy()
+            t = t[:-1]
         elif key == "gamma":
-            y = hist["control"][..., 2].detach().numpy(); t = t[:-1]
+            y = hist["control"][..., 2].detach().cpu().numpy()
+            t = t[:-1]
         elif key == "q":
-            y = hist["endog"][..., 0].detach().numpy(); t = t[:-1]
+            y = hist["endog"][..., 0].detach().cpu().numpy()
+            t = t[:-1]
         elif key == "Ub":
-            y = hist["endog"][..., 3].detach().numpy(); t = t[:-1]
+            y = hist["endog"][..., 3].detach().cpu().numpy()
+            t = t[:-1]
         else:
             raise ValueError(f"Unknown key: {key}")
 
@@ -411,27 +432,40 @@ def plot_controls_summary(results, save_path=None):
         n = min(len(t), len(y_mean))
         return t[:n], y_mean[:n]
 
-    for j, (key, title, ylabel) in enumerate(plot_specs):
+    for j, (key, title) in enumerate(plot_specs):
 
-        for i, (policy_name, hist) in enumerate(results.items()):
+        for policy_name, hist in results.items():
+
+            style = policy_styles[policy_name]
             t, y_mean = get_series(hist, key)
+
             ax[j].plot(
-                t, y_mean, 
-                linestyle=linestyles[i % len(linestyles)], 
-                linewidth=2, 
-                label=policy_name.capitalize()
+                t,
+                y_mean,
+                linewidth=2,
+                label=style["label"],
+                color=style["color"],
+                marker=style["marker"],
+                markevery=max(1, len(t) // 12),
+                markersize=5,
             )
 
-        ax[j].set_ylabel(title)
+        ax[j].set_title(title, loc="left")
+        ax[j].grid(alpha=0.2)
 
     for a in ax[-3:]:
         a.set_xlabel(r"Time $t$ (hrs)")
 
     handles, labels = ax[0].get_legend_handles_labels()
+
     legend = fig.legend(
-        handles, labels, loc="upper center", 
-        ncol=len(results), bbox_to_anchor=(0.5, 1.05), 
-        frameon=False
+        handles,
+        labels,
+        loc="upper center",
+        ncol=len(results),
+        bbox_to_anchor=(0.5, 1.05),
+        frameon=False,
+        fontsize=15
     )
 
     plt.tight_layout()

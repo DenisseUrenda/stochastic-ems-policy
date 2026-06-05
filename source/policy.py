@@ -112,8 +112,9 @@ def build_policy_input(t: float, S: torch.Tensor, params: SystemParams):
     return policy_input
 
 
-# ----- Heuristic Policy -----------------------------------------------------------------
-class HeuristicPolicy(nn.Module):
+# ----- Heuristic Policies -----------------------------------------------------------------
+
+class PriceAwarePolicy(nn.Module):
   """
   EV-first price-threshold heuristic policy.
 
@@ -172,6 +173,220 @@ class HeuristicPolicy(nn.Module):
     # High price: discharge ESS and use minimum feasible grid purchase
     delta[high_price_mask] = -1.0
     gamma[high_price_mask] = 0.0
+
+    u = torch.stack([eta, delta, gamma], dim=-1)
+
+    out_dict = {
+      name: u[:, i] for i, name in enumerate(self.output_names)
+    }
+
+    return u, out_dict
+  
+
+
+class BatteryAwarePolicy(nn.Module):
+  """
+  EV-first price-threshold heuristic with battery-aware smoothing.
+
+  Uses price and stored battery energy.
+
+  eta:
+    power allocation to EV demand
+
+  delta:
+    ESS charge/discharge control
+    delta > 0: charge battery
+    delta < 0: discharge battery
+
+  gamma:
+    grid purchase interpolation
+    gamma = 0: minimum feasible grid purchase
+    gamma = 1: maximum feasible grid purchase
+  """
+
+  def __init__(
+      self,
+      low_price: float = 0.17,
+      high_price: float = 0.25,
+      low_battery: float = 0.20,
+      high_battery: float = 0.80,
+      output_names: list[str] = ["eta", "delta", "gamma"]
+    ):
+    super().__init__()
+
+    if low_price >= high_price:
+      raise ValueError("low_price must be smaller than high_price.")
+
+    if not (0.0 <= low_battery < high_battery <= 1.0):
+      raise ValueError("Battery thresholds must satisfy 0 <= low < high <= 1.")
+
+    self.low_price = low_price
+    self.high_price = high_price
+    self.low_battery = low_battery
+    self.high_battery = high_battery
+    self.output_names = output_names
+
+
+  def forward(self, S: torch.Tensor):
+    batch = S.shape[0]
+    device = S.device
+    dtype = S.dtype
+
+    # policy input = [sin_t, cos_t, Nn, Dn, En, Pn]
+    energy = S[:, 4]
+    price = S[:, 5]
+
+    # Always prioritize EV charging
+    eta = torch.ones(batch, device=device, dtype=dtype)
+
+    # Neutral defaults: medium price + medium battery
+    delta = torch.zeros(batch, device=device, dtype=dtype)
+    gamma = torch.full((batch,), 0.5, device=device, dtype=dtype)
+
+    low_price_mask = price <= self.low_price
+    high_price_mask = price >= self.high_price
+    mid_price_mask = (~low_price_mask) & (~high_price_mask)
+
+    low_battery_mask = energy <= self.low_battery
+    high_battery_mask = energy >= self.high_battery
+    mid_battery_mask = (~low_battery_mask) & (~high_battery_mask)
+
+    # --------------------------------------------------
+    # Low price
+    # --------------------------------------------------
+    # Low/mid battery: charge and allow maximum feasible grid purchase
+    mask = low_price_mask & (low_battery_mask | mid_battery_mask)
+    delta[mask] = 1.0
+    gamma[mask] = 1.0
+
+    # High battery: do not overcharge; minimize grid purchase
+    mask = low_price_mask & high_battery_mask
+    delta[mask] = 0.0
+    gamma[mask] = 0.0
+
+    # --------------------------------------------------
+    # Mid price
+    # --------------------------------------------------
+    # Low battery: gently recharge
+    mask = mid_price_mask & low_battery_mask
+    delta[mask] = 0.5
+    gamma[mask] = 0.75
+
+    # Middle battery: stay neutral
+    mask = mid_price_mask & mid_battery_mask
+    delta[mask] = 0.0
+    gamma[mask] = 0.5
+
+    # High battery: gently discharge
+    mask = mid_price_mask & high_battery_mask
+    delta[mask] = -0.5
+    gamma[mask] = 0.25
+
+    # --------------------------------------------------
+    # High price
+    # --------------------------------------------------
+    # Low battery: preserve battery; minimize grid purchase
+    mask = high_price_mask & low_battery_mask
+    delta[mask] = 0.0
+    gamma[mask] = 0.0
+
+    # Mid/high battery: discharge and minimize grid purchase
+    mask = high_price_mask & (mid_battery_mask | high_battery_mask)
+    delta[mask] = -1.0
+    gamma[mask] = 0.0
+
+    u = torch.stack([eta, delta, gamma], dim=-1)
+
+    out_dict = {
+      name: u[:, i] for i, name in enumerate(self.output_names)
+    }
+
+    return u, out_dict
+  
+
+
+
+
+class TimeAwarePolicy(nn.Module):
+  """
+  EV-first price-threshold heuristic with simple time-of-day behavior.
+
+  Uses price and time.
+
+  Price signal dominates:
+    low price  -> charge
+    high price -> discharge
+
+  Time is only used when price is in the middle range.
+  """
+
+  def __init__(
+      self,
+      low_price: float = 0.17,
+      high_price: float = 0.25,
+      morning_end: float = 6.0,
+      evening_start: float = 17.0,
+      evening_end: float = 22.0,
+      output_names: list[str] = ["eta", "delta", "gamma"]
+    ):
+    super().__init__()
+
+    if low_price >= high_price:
+      raise ValueError("low_price must be smaller than high_price.")
+
+    self.low_price = low_price
+    self.high_price = high_price
+    self.morning_end = morning_end
+    self.evening_start = evening_start
+    self.evening_end = evening_end
+    self.output_names = output_names
+
+
+  def forward(self, S: torch.Tensor):
+    batch = S.shape[0]
+    device = S.device
+    dtype = S.dtype
+
+    # policy input = [sin_t, cos_t, Nn, Dn, En, Pn]
+    sin_t = S[:, 0]
+    cos_t = S[:, 1]
+    price = S[:, 5]
+
+    # Recover time in hours from sin/cos encoding
+    angle = torch.atan2(sin_t, cos_t)
+    angle = torch.remainder(angle, 2 * torch.pi)
+    t = angle * 24.0 / (2 * torch.pi)
+
+    eta = torch.ones(batch, device=device, dtype=dtype)
+
+    # Default: neutral
+    delta = torch.zeros(batch, device=device, dtype=dtype)
+    gamma = torch.full((batch,), 0.5, device=device, dtype=dtype)
+
+    low_price_mask = price <= self.low_price
+    high_price_mask = price >= self.high_price
+    mid_price_mask = (~low_price_mask) & (~high_price_mask)
+
+    morning_mask = t <= self.morning_end
+    evening_mask = (t >= self.evening_start) & (t <= self.evening_end)
+
+    # Price dominates
+    delta[low_price_mask] = 1.0
+    gamma[low_price_mask] = 1.0
+
+    delta[high_price_mask] = -1.0
+    gamma[high_price_mask] = 0.0
+
+    # Time only acts when price is not decisive
+    # Morning: prepare battery
+    mask = mid_price_mask & morning_mask
+    delta[mask] = 0.5
+    gamma[mask] = 0.75
+
+    # Evening: use battery
+    mask = mid_price_mask & evening_mask
+    delta[mask] = -0.5
+    gamma[mask] = 0.25
 
     u = torch.stack([eta, delta, gamma], dim=-1)
 
